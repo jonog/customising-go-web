@@ -1,0 +1,218 @@
+Customising Your Own Web Framework in Go
+20 Jan 2015
+Tags: golang http web frameworks
+
+Jonathan Gomez
+Engineer, Zumata
+jonathanbgomez@gmail.com
+@jonog
+
+* Me
+.html presentation/style.html
+- Full stack engineer at Zumata
+- Previously, full stack at Pie, Singapore startup building a chat app (node.js/Angular)
+- Love working on data-focused products
+- Side-project [[http://feedfox.co][feedfox.co]] (using Go for API / caching / autocomplete)
+- Moved from Australia to Singapore just over 1 year ago
+.image presentation/jg.jpg _ 500
+
+* Zumata
+.image presentation/zumata-logo.png
+- Startup focused on B2B travel products
+- *Travel*website*white-label* (i.e. we design and run a travel website for you)
+- *API*for*Hotel*Search*&*Booking*
+- Lots of data aggregation and real-time pricing based on market info
+
+* Zumata: Why we use Go
+- Original build in Ruby
+- Go easily handles our data-processing requirements in real-time
+- Used beyond data processing, i.e. for serving API
+- Finding it works well, using in new products
+
+* Zumata: We're Hiring
+- Team of 12
+- Dev team of 8
+- Gopher team of 4
+- Based in Block 71
+- *Stack:* Go, Ruby, JS (Angular), Postgres, Redis
+.image presentation/gopher_team.png
+
+* This Talk
+*Overview*
+- Intro to serving requests with `http/net`
+- Customising Handlers
+- Writing Middleware
+- Ecosystem
+
+**
+*Key*takeaways*
+- Compared with Ruby/Node.js, mainly using the standard library is considered normal
+- *Interfaces* and *first-class*functions* make it easy to extend functionality
+- Ecosystem of libraries that work alongside `http/net` is growing
+
+* Intro to Serving Requests with http/net
+
+* Serving Requests via Standard Lib (1/4)
+.code presentation/hello_world.go
+- *ListenAndServe* - creates server that will listen for requests
+- Each request spawns a go routine: `go`c.serve()`
+
+* Serving Requests via Standard Lib (2/4)
+- ServeMux matches incoming request against a list of patterns (method/host/url)
+- ServeMux is a special kind of `Handler` which calls another `Handler`
+.image presentation/request_handling_logic.png _ 900
+
+- *Handler* interface
+.code presentation/handler_interface.go
+
+* Serving Requests via Standard Lib (3/4)
+
+- Request handling logic in ordinary function `func(ResponseWriter,`*Request)`
+.code presentation/handler_func.go /START/,/END/
+
+- Register the function as a Handler on *DefaultServeMux*
+.code presentation/handlefunc_equiv.go
+
+- Also can:
+.code presentation/shorthand.go
+
+* Serving Requests via Standard Lib (4/4)
+- `func(ResponseWriter,`*Request)`
+- *ResponseWriter* interface
+.code presentation/response_writer_interface.go
+
+- *Request* struct
+.code presentation/request_type.go
+
+* Customising Handlers
+
+* Demo: Customising Handlers - DRY Response Handling (1/3)
+.code handler_custom/main.go /START 1/,/END 1/
+- In app code we might extend this further:
+- Add error types and respond differently.
+- e.g. warn vs error-level log, send alerts, increment error metrics
+
+* Demo: Customising Handlers - DRY Response Handling (2/3)
+
+.code handler_custom/main.go /START 2/,/END 2/
+
+* Demo: Customising Handlers - DRY Response Handling (3/3)
+
+.play handler_custom/main.go /START 3/,/END 3/
+- Use of special struct and special handler function to satisfy `Handler` interface
+.code handler_custom/how_to_call.go
+- Reduce repetition, extend functionality.
+
+* Demo: Customising Handlers - Avoiding Globals
+
+.play handler_avoid_globals/main.go /START OMIT/,/END OMIT/
+- Allows injecting dependencies rather than relying on global variables.
+
+* Writing Middleware
+
+* Middleware: Why?
+- Abstract common functionality across a set of handlers
+- Bare minimum in Go:
+- `func(next`http.Handler)`http.Handler`
+
+**
+*Typical*uses*of*middleware*across*languages/frameworks:*
+- logging
+- authentication
+- handling panic / exceptions
+- gzipping
+- request parsing
+
+* Demo: Middleware Example (Panic Recovery)
+.play middleware_recovery/main.go /START OMIT/,/END OMIT/
+
+* Demo: Chaining Middleware
+.code middleware_chain_manual/main.go /START 1/,/END 1/
+.play middleware_chain_manual/main.go /START 2/,/END 2/
+- Calling chain of middleware
+.code middleware_chain_manual/how_to_call.go
+
+* Chaining Middleware - Alternate Syntax
+
+3rd Party Library: Alice
+
+- Manages middleware with the standard function signature
+- Nice syntax for setting up chains used in different endpoints
+.code middleware_chain_alice/snippet.go
+- Our example
+.code middleware_chain_alice/chain_example.go
+
+* Demo: Creating Configurable Middleware
+.play middleware_wrapper/main.go /START OMIT/,/END OMIT/
+- e.g. Pass the dependency on `*AppLogger`
+.code middleware_wrapper/how_to_call.go
+
+* Demo: Customising ResponseWriter (1/3)
+
+	type ResponseWriter interface {
+		Header() http.Header
+		Write([]byte) (int, error)
+		WriteHeader(int)
+	}
+
+- ResponseWriter as an interface allows us to extend functionality easily 
+- *Example:*
+- *Step*1:* Create a struct that wraps ResponseWriter
+.code http_response_writer_wrapper/main.go /START 1/,/END 1/
+- Record data that would be otherwise be untracked.
+
+* Demo: Customising ResponseWriter (2/3)
+- *Step*2:* Define methods required for implicit satisfaction
+.code http_response_writer_wrapper/main.go /START 2/,/END 2/
+
+* Demo: Customising ResponseWriter (3/3)
+
+.play http_response_writer_wrapper/main.go /START 3/,/END 3/
+
+* Growing Middleware Ecosystem
+**
+*Excerpt*from*Negroni*Github*page*
+[[https://github.com/stretchr/graceful][graceful:]] graceful HTTP Shutdown
+[[https://github.com/goincremental/negroni-oauth2][oauth2:]] oAuth2 middleware
+[[https://github.com/mholt/binding][binding:]] data binding from HTTP requests into structs
+[[https://github.com/pilu/xrequestid][xrequestid:]]	Assign a random X-Request-Id: header to each request
+[[https://github.com/jingweno/negroni-gorelic][gorelic:]] New Relic agent for Go runtime
+
+**
+*Mailgun's*Oxy*
+[[http://godoc.org/github.com/mailgun/oxy/stream][stream:]] retries and buffers requests and responses
+[[http://godoc.org/github.com/mailgun/oxy/connlimit][connlimit:]] Simultaneous connections limiter
+[[http://godoc.org/github.com/mailgun/oxy/ratelimit][ratelimit:]] Rate limiter
+
+* Other Web Framework Components
+
+*Routing*&*Extracting*URL*Params*
+- standard library can be inflexible
+- regex for extracting url params can feel too low level
+- plenty of third party routers, e.g. Gorilla mux
+
+.code presentation/url_data_gorilla.go
+
+**
+*Request-specific*context*
+- sharing data between items in middleware chain and final handler
+- solutions involve either global map, or per-request map/structs using custom handlers/middleware
+
+* Web frameworks vs Build on top of standard library?
+
+Time/expertise to build what you need? Too much re-inventing?
+Your optimisation vs framework optimisation?
+Performance? Does performance order of magnitude matter?
+How much magic do you want?
+Compatibility with `net/http` / ecosystem? Framework interchangeability?
+
+[[https://github.com/go-martini/martini][*Martini*--*6.1k*]]
+[[https://github.com/revel/revel][*Revel*--*4.7k*]]
+[[https://github.com/astaxie/beego][*beego*--*3.7k*]]
+[[https://github.com/zenazn/goji][*goji*--*1.9k*]]
+[[https://github.com/gin-gonic/gin][*gin*--*1.9k*]]
+[[https://github.com/codegangsta/negroni][*negroni*--*1.8k*]]
+[[https://github.com/ant0ine/go-json-rest][*go-json-rest*--*1.1k*]]
+[[https://github.com/gorilla/mux][*Gorilla/mux*--*1.1k*]]
+[[https://github.com/rcrowley/go-tigertonic][*Tiger*Tonic*--*0.8k*]]
+[[https://github.com/gocraft/web][*Gocraft/web*--*0.6k*]]

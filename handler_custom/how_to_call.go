@@ -1,0 +1,1 @@
+http.Handle("/", appHandler{unstableEndpoint})
