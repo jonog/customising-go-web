@@ -4,5 +4,5 @@
 
 ### View Slides
 
-Online: [here](http://go-talks.appspot.com/github.com/jonog/customising-go-web/presentation.slide)
+Online: [here](http://go-talks.appspot.com/github.com/jonog/customising-go-web/customising-go-web.slide)
 
